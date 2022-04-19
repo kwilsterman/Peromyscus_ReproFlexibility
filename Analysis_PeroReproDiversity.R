@@ -1,4 +1,4 @@
-setwd("~/Documents/Research/Permyscus_ReproFlexibility/TO SUBMIT")
+
 library(ggplot2)
 library(ggbeeswarm)
 library(lme4)
@@ -10,102 +10,56 @@ b <-read.csv(file="LitterSize_fulldataset.csv",header=TRUE,sep=",")
 b$Strain <- as.factor(b$Strain)
 b$Species <- as.factor(b$Species)
 
+# SUPPL TABLE 2 -----------------------------------------------------------
 b_ls <- b[which(b$Parity <4),]
 
-##change parity for summary table
-b_lw$Parity <- as.factor(b_ls$Parity)
-LSSummaryTable <- b_ls %>% 
-  group_by(Species, Strain, Parity) %>%
-  summarize(NLitterSize = n(), 
-            NDams = n_distinct(F_ID, na.rm=TRUE),
-            medianLitterSize = median(Npup, na.rm = TRUE),
-            averageLitterSize = mean(Npup, na.rm = TRUE),
-            maxLitterSize = max(Npup, na.rm = TRUE),
-            minLitterSize = min(Npup, na.rm = TRUE)
-  )
+## parity impacts litter size within Peromyscus ##
+full_model <- lmer(Npup ~ Parity + Species + (1|F_ID),
+              data = b_ls)
+qqnorm(resid(full_model))
+qqline(resid(full_model))
+anova(full_model)
+summary(full_model)
 
-ggplot() +
-  geom_violin(data = b2wd, aes(x=as.factor(Parity), y = Npup, color = Strain), adjust = 2, scale = "count") +
-  geom_point(data = LSSummaryTable, aes(x=as.factor(Parity), y = averageLitterSize, color = Strain)) + 
-  facet_wrap(~Strain) +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.background = element_blank(), axis.line = element_line(colour = "black"))
+## strain-specific parity effects on LS ##
+b_ls$Parity <- as.factor(b_ls$Parity)
 
-
-model <- lmer(Npup ~ StrainType*Parity + (1|Strain),
-              data = b2wd)
-qqnorm(resid(model))
-qqline(resid(model))
-anova(model)
-pairs(emmeans(model, ~ StrainType))
-
-LL <- b2wd[which(b2wd$Strain == "LL"),]
-
-##stock center strains have << inccrase in littersize across parities compared with WD strains
-
-model <- lmer(Npup ~ Strain + Parity + (1|F_ID),
-              data = b)
-qqnorm(resid(model))
-qqline(resid(model))
-anova(model)
-pairs(emmeans(model, ~Strain))
-
-##var. amoing strains in litter sizes
-
-strain <- b2wd[which(b2wd$Strain=="GOS"),]
-model <- lmer(Npup ~ Parity + (1|F_ID),
+strain <- b_ls[which(b_ls$Strain=="GOS"),]
+strain_specific_model <- lmer(Npup ~ Parity + (1|F_ID),
               data = strain)
-qqnorm(resid(model))
-qqline(resid(model))
-anova(model)
-pairs(emmeans(model, ~Parity))
+qqnorm(resid(strain_specific_model))
+qqline(resid(strain_specific_model))
+anova(strain_specific_model)
+pairs(emmeans(strain_specific_model, ~Parity))
 
-#strains w/ sig var in litter size among parities
+## strains differ in mean littersize (maniculatus only) ##
+pman <- b_ls[which(b_ls$Species=="PEMA"),]
+pman_model <- lmer(Npup ~ Parity + Strain + (1|F_ID),
+                              data = pman)
+qqnorm(resid(pman_model))
+qqline(resid(pman_model))
+anova(pman_model)
+pairs(emmeans(pman_model, ~Strain))
 
 
+# SUPPL TABLE 3 -----------------------------------------------------------
+env <- read.csv(file="Env_LitterSize_LabOnly.csv",header=TRUE,sep=",")
 
-b <-read.csv(file="LitterSize_sh_072221.csv",header=TRUE,sep=",")
+cor.test(env$LitterSize.Mean, env$TEMP_DegreeOfSeasonality)
+
+# SUPPL TABLE 5 -----------------------------------------------------------
+
 bIBI <- b[which(b$Parity <10),]
-bIBI <- bIBI[-which(bIBI$Strain == "HL"),]
-bIBI$Strain <- as.factor(bIBI$Strain)
-bIBI$Species <- as.factor(bIBI$Species)
-
 bIBI <- bIBI[which(bIBI$IBI < 45),]
 
-IBISummaryTable <- bIBI %>% 
-  group_by(Species, Strain) %>%
-  summarize(NIBI = n(),
-            NDam = n_distinct(F_ID, na.rm=TRUE),
-            medianIBI = median(IBI, na.rm = TRUE),
-            averageIBI = mean(IBI, na.rm = TRUE),
-            maxIBI = max(IBI, na.rm = TRUE),
-            minIBI = min(IBI, na.rm = TRUE)
-  )
-IBISummaryTable_sub <- IBISummaryTable[-which(IBISummaryTable$NIBI < 10),]
-
-ggplot() +
-  geom_violin(data = bIBI, aes(x=Strain, y = IBI, color = Strain), adjust = 2) +
-  geom_point(data = IBISummaryTable_sub, aes(x=Strain, y = medianIBI, color = Strain)) + 
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-        panel.background = element_blank(), axis.line = element_line(colour = "black"))
-
-
-m2 <- lmer(IBI ~ Parity + Npup + PrevLitterSize + Species + (1|Strain/F_ID),
-           data = bIBI)
-summary(m2)
-anova(m2)
-
 bIBI_pema <- bIBI[which(bIBI$Species == "PEMA"),]
-bIBI_pema <- bIBI_pema[-which(bIBI_pema$Strain == "SW"),]
 bIBI_pema <- bIBI_pema[-which(bIBI_pema$Strain == "AUS"),]
 bIBI_pema <- bIBI_pema[-which(bIBI_pema$Strain == "SAT"),]
-
 m3 <- lmer(IBI ~ Parity + Npup + PrevLitterSize + Strain + (1|F_ID),
            data = bIBI_pema)
 summary(m3)
 anova(m3)
 pairs(emmeans(m3, ~Strain))
-
 
 bIBI_pele <- bIBI[which(bIBI$Species == "PELE"),]
 m4 <- lmer(IBI ~ Parity + Npup + PrevLitterSize + Strain + (1|F_ID),
@@ -113,14 +67,11 @@ m4 <- lmer(IBI ~ Parity + Npup + PrevLitterSize + Strain + (1|F_ID),
 summary(m4)
 anova(m4)
 
-
 bIBI_peca <- bIBI[which(bIBI$Species == "PECA"),]
 m5 <- lmer(IBI ~ Parity + Npup + PrevLitterSize + (1|F_ID),
            data = bIBI_peca)
 summary(m5)
 anova(m5)
-
-
 
 bIBI_pepo <- bIBI[which(bIBI$Species == "PEPO"),]
 m6 <- lmer(IBI ~ Parity + Npup + PrevLitterSize  + Strain + (1|F_ID),
@@ -129,37 +80,44 @@ summary(m6)
 anova(m6)
 
 
+# SUPPL TABLE 6 -----------------------------------------------------------
+##stock center strains have << increase in littersize across parities compared with WD strains
+b_ls_origin <- b_ls[-which(b_ls$Species == "PECA"),]
+b_ls_origin <- b_ls_origin[-which(b_ls_origin$Species == "PMEL"),]
+b_ls_origin <- b_ls_origin[-which(b_ls_origin$Species == "PEGO"),]
 
-pairs(emmeans(m2, ~Species))
-plot(emmeans(m2, ~Parity))
-plot(emmeans(m2, ~Npup))
-plot(emmeans(m2, ~PrevLitterSize))
+strainorigin_model <- lmer(Npup ~ StrainType + Parity + Species + (1|F_ID),
+              data = b_ls_origin)
+qqnorm(resid(strainorigin_model))
+qqline(resid(strainorigin_model))
+anova(strainorigin_model)
+pairs(emmeans(strainorigin_model, ~ StrainType))
 
 
+b_ibi_origin <- bIBI[-which(bIBI$Species == "PECA"),]
+b_ibi_origin <- b_ibi_origin[-which(b_ibi_origin$Species == "PMEL"),]
+b_ibi_origin <- b_ibi_origin[-which(b_ibi_origin$Species == "PEGO"),]
 
-qqnorm(resid(m2))
-qqline(resid(m2))
+strainorigin_model <- lmer(IBI ~ StrainType + Species + Parity + Npup + PrevLitterSize  + (1|F_ID),
+                           data = b_ibi_origin)
+qqnorm(resid(strainorigin_model))
+qqline(resid(strainorigin_model))
+anova(strainorigin_model)
+pairs(emmeans(strainorigin_model, ~ StrainType))
 
 
-strain <- b2wd[which(b2wd$Strain == "LL"),]
+# SUPPL TABLE 7 -----------------------------------------------------------
+##BW
+strain <- b_ls[which(b_ls$Strain == "BW"),]
 strain$LOC <- as.factor(strain$LOC)
 
-summary(strain$LOC[which(strain$Parity == 1)])
+model <- lmer(Npup ~ LOC + Parity + (1|F_ID), data = strain)
+anova(model)
+
+##LL
+strain <- b[which(b$Strain == "LL"),]
+strain$LOC <- as.factor(strain$LOC)
 
 model <- lm(Npup ~ LOC, data = strain[which(strain$Parity == 1),])
 anova(model)
-plot(emmeans(model, ~LOC))
 
-##we find no effect of location, where breeding conditions vary among labs, on litter size in LL, BW, ME or LN lines
-#however, sample size is small for these analyses and restricted to first births, where we have the most
-#comparable data aong labs. Better analyses would also look at time to breed after pairing, litter IBI, 
-#and litter size across parities
-
-me <- b2wd[which(b2wd$Strain == "ME"),]
-me$LOC <- as.factor(me$LOC)
-me <- me[-which(me$LOC == "IL"),]
-
-plot(me$IBI ~ me$LOC)
-t <- lmer(Npup ~ LOC + Parity + (1|F_ID), data = me)
-anova(t)
-pairs(emmeans(t, ~LOC))
